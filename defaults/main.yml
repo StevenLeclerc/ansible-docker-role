@@ -1,0 +1,4 @@
+DOCKER_YUM_REPO_URL: "https://download.docker.com/linux/centos/$releasever/$basearch/stable"
+DOCKER_REPO_GPGKEY: "https://download.docker.com/linux/centos/gpg"
+DOCKER_COMPOSE_VERSION: v2.5.1
+DOCKER_COMPOSE_BIN_PATH: /usr/bin/docker-compose

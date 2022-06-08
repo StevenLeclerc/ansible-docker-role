@@ -1,0 +1,91 @@
+---
+
+- name: Add docker official repository
+  ansible.builtin.yum_repository:
+    name: docker-ce-stable
+    baseurl: "{{ DOCKER_YUM_REPO_URL }}"
+    description: "Docker CE Stable - $basearch"
+    gpgkey: "{{ DOCKER_REPO_GPGKEY }}"
+    gpgcheck: 1
+    state: present
+  tags: docker-install
+  when: ansible_distribution == 'CentOS' and ansible_distribution_version == '7.9'
+
+- name: Install Docker
+  ansible.builtin.yum:
+    name: docker-ce, docker-ce-cli, containerd.io, docker-compose-plugin
+    state: present
+    enablerepo: "docker-ce-stable"
+  tags: docker-install
+  when: ansible_distribution == 'CentOS' and ansible_distribution_version == '7.9'
+
+- name: Add Docker Repository - centos8
+  ansible.builtin.dnf:
+    enablerepo:
+      - https://download.docker.com/linux/centos/docker-ce.repo
+  tags: docker-install
+  when: ansible_distribution == 'CentOS' and ansible_distribution_version == '8'
+
+- name: List available docker packages - centos8
+  ansible.builtin.command:
+    cmd: bash -c "dnf list docker-ce --showduplicates | sort -r"
+  tags: docker-install
+  when: ansible_distribution == 'CentOS' and ansible_distribution_version == '8'
+  register: repolist
+
+- name: Display docker repolist
+  ansible.builtin.debug:
+    var: repolist.stdout_lines
+    verbosity: 0
+  tags: docker-install
+
+- name: Install Docker-CE 20.10.9 - centos8
+  ansible.builtin.dnf:
+    name: https://download.docker.com/linux/centos/7/x86_64/stable/Packages/containerd.io-1.6.4-3.1.el7.x86_64.rpm, https://download.docker.com/linux/centos/7/x86_64/stable/Packages/docker-compose-plugin-2.5.0-3.el7.x86_64.rpm, https://download.docker.com/linux/centos/7/x86_64/stable/Packages/docker-ce-cli-20.10.9-3.el7.x86_64.rpm, https://download.docker.com/linux/centos/7/x86_64/stable/Packages/docker-scan-plugin-0.12.0-3.el7.x86_64.rpm, https://download.docker.com/linux/centos/7/x86_64/stable/Packages/docker-ce-rootless-extras-20.10.9-3.el7.x86_64.rpm, https://download.docker.com/linux/centos/7/x86_64/stable/Packages/docker-ce-20.10.9-3.el7.x86_64.rpm
+    state: present
+    disable_gpg_check: true
+    nobest: true
+    skip_broken: true
+  tags: docker-install
+  when: ansible_distribution == 'CentOS' and ansible_distribution_version == '8'
+
+- name: Enable and Start Docker
+  ansible.builtin.systemd:
+    name: docker
+    state: restarted
+    enabled: true
+  tags: docker-install, docker-start
+
+- name: Enable and Start Containerd
+  ansible.builtin.systemd:
+    name: containerd
+    state: restarted
+    enabled: true
+  tags: docker-install, docker-start
+
+- name: Download Docker-Compose
+  ansible.builtin.uri:
+    url: "https://github.com/docker/compose/releases/download/{{ DOCKER_COMPOSE_VERSION }}/docker-compose-linux-x86_64"
+    dest: "{{ DOCKER_COMPOSE_BIN_PATH }}"
+    status_code:
+      - 200
+      - 304
+  tags: docker-compose
+
+- name: CHMOD +x Docker-Compose
+  ansible.builtin.file:
+    path: "{{ DOCKER_COMPOSE_BIN_PATH }}"
+    mode: u+x
+  tags: docker-compose
+
+- name: Update home files with new group
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    owner: admin
+    group: docker
+    recurse: "{{ item.isRecursive }}"
+  tags: user-docker
+  loop:
+    - {path: ~/, isRecursive: true}
+    - {path: "{{ DOCKER_COMPOSE_BIN_PATH }}", isRecursive: false}
+
